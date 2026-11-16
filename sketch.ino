@@ -1,11 +1,11 @@
-// 1. Position struct
+// Simple Object Structure for Position
 struct Position {
     double x = 0.0;
     double y = 0.0;
     double z = 0.0;
 };
 
-// 2. Motor Interface
+// Motor Interface
 class MotorInterface {
 public:
     virtual ~MotorInterface() {}
@@ -14,7 +14,7 @@ public:
     virtual Position getCurrentPosition() const = 0;
 };
 
-// 3. Simulation Motors implementation
+// Simulation Motors implementation
 class SimulationMotors : public MotorInterface {
 private:
     Position currentPos;
@@ -52,7 +52,7 @@ public:
     }
 };
 
-// 4. Claw Controller Logic
+// Claw Controller Logic with Win/Loss Mechanics
 class ClawController {
 private:
     MotorInterface* hardwareMotors;
@@ -82,20 +82,27 @@ public:
 
         Serial.println("[Controller] Closing claw to grab prize...");
         hardwareMotors->setClawState(false);
-        isHoldingPrize = true; 
         delay(400);
 
         Serial.println("[Controller] Raising claw back up...");
         hardwareMotors->moveAxis('Z', 0.0);
         delay(400);
         
-        Serial.println("[Controller] Drop and grab sequence completed successfully!");
+        // Arcade win/loss probability logic (40% win chance)
+        int randomChance = random(1, 101); 
+        if (randomChance <= 40) {
+            isHoldingPrize = true;
+            Serial.println("🎉 YOU WON A PRIZE! 🧸✨ Claw held on successfully!");
+        } else {
+            isHoldingPrize = false;
+            Serial.println("💨 Oh no! The toy slipped out of the claw! Try again.");
+        }
     }
 
     bool hasPrize() { return isHoldingPrize; }
 };
 
-// 5. Define Pins and Global Variables *after* classes are declared
+// Define Pins for Left, Right, and Drop buttons
 const int PIN_LEFT = 2;
 const int PIN_RIGHT = 3;
 const int PIN_DROP = 4;
@@ -107,33 +114,35 @@ void setup() {
     Serial.begin(115200);
     delay(500); 
     
-    // Configure button pins with internal pull-ups (press = LOW)
+    // Configure all button pins with internal pull-ups (press = LOW)
     pinMode(PIN_LEFT, INPUT_PULLUP);
     pinMode(PIN_RIGHT, INPUT_PULLUP);
     pinMode(PIN_DROP, INPUT_PULLUP);
 
+    randomSeed(analogRead(A0));
+
     claw = new ClawController(&myMotors);
-    Serial.println("=== 🕹️ Interactive Claw Machine Ready! Use Buttons on Pins 2, 3, 4 🕹️ ===\n");
+    Serial.println("=== 🕹️ Interactive Claw Machine Ready! Use Pins 2 (Left), 3 (Right), 4 (Drop) 🕹️ ===\n");
 }
 
 void loop() {
-    // Check if "Move Left" button (Pin 2) is pressed
+    // 1. Move Left Button (Pin 2)
     if (digitalRead(PIN_LEFT) == LOW) {
-        Serial.println("Button Pressed: Moving Left!");
+        Serial.println("\nButton Pressed: Moving Left!");
         claw->targetDestination(10.0, 12.0);
-        delay(300); // Debounce delay
+        delay(300); 
     }
 
-    // Check if "Move Right" button (Pin 3) is pressed
+    // 2. Move Right Button (Pin 3)
     if (digitalRead(PIN_RIGHT) == LOW) {
-        Serial.println("Button Pressed: Moving Right!");
+        Serial.println("\nButton Pressed: Moving Right!");
         claw->targetDestination(40.0, 12.0);
-        delay(300);
+        delay(300); 
     }
 
-    // Check if "Drop" button (Pin 4) is pressed
+    // 3. Drop Button (Pin 4)
     if (digitalRead(PIN_DROP) == LOW) {
-        Serial.println("Button Pressed: Drop & Grab Sequence!");
+        Serial.println("\nButton Pressed: Drop & Grab Sequence!");
         claw->executeDropAndGrab();
         delay(500);
     }
